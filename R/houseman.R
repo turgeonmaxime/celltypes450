@@ -1,6 +1,3 @@
-library(parallel)
-library(nlme)
-
 #' Perform the anti-logit
 #' @param M matrix of M values on which to apply anti-logit.
 #' @return beta matrix
@@ -29,7 +26,7 @@ penFitOne = function(y, Zmat){
   Z = Zmat[is.obs,,drop=FALSE]
   y = y[is.obs]
   id = rep(1,length(y))
-  lmod = try(lme(y~1, random=list(id=pdIdent(~Z-1))), silent=TRUE)
+  lmod = try(nlme::lme(y~1, random=list(id=pdIdent(~Z-1))), silent=TRUE)
   if(!inherits(lmod,"try-error")){
     adj[is.obs] = resid(lmod) + lmod$coef$fixed[1]
   }# else {
@@ -112,8 +109,8 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
     
     dmr.coefs = read.delim(cell.coefs, row.names=1)
     # take shared probes. may be differences if beta is from 450k
-    dmr.coefs = dmr.coefs[rownames(dmr.coefs) %in% rownames(B),]
-    dmr.coefs = as.matrix(dmr.coefs[1:min(top_n, nrow(dmr.coefs)),])
+    dmr.coefs = dmr.coefs[rownames(dmr.coefs) %in% rownames(B),, drop=FALSE]
+    dmr.coefs = dmr.coefs[1:min(top_n, nrow(dmr.coefs)),, drop=FALSE]
     stopifnot(nrow(dmr.coefs) > 0)
 
     # reporter matrix
@@ -125,7 +122,7 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
 
     message(paste0("using ", length(dmrs), " dmrs"))
 
-    omega.mix = projectWBC(B[dmrs,],
+    omega.mix = projectWBC(B[dmrs,, drop=FALSE],
         dmr.coefs[dmrs,],
         contrastWBC=Lwbc,
         nonnegative=TRUE,
@@ -136,7 +133,7 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
 
     message("adjusting beta (this will take a while)...")
     tmpList = lapply(1:mc.cores, function(i){ seq(from=i, to=nrow(B), by=mc.cores) })
-    tmpAdj = mclapply(tmpList, function(ix){ penFitAll(B[ix,], omega.mix) }, mc.cores=mc.cores)
+    tmpAdj = parallel::mclapply(tmpList, function(ix){ penFitAll(B[ix,], omega.mix) }, mc.cores=mc.cores)
 
     adjBeta = matrix(NA, nrow(B), ncol(B))
     for (i in 1:length(tmpList)){
