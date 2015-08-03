@@ -35,10 +35,10 @@
 projectWBC <- function(Y, coefWBC, contrastWBC=NULL, nonnegative=TRUE, lessThanOne=FALSE){ 
 
   if(is.null(contrastWBC)) Xmat = coefWBC
-  else Xmat = coefWBC %*% t(contrastWBC) 
+  else Xmat = tcrossprod(coefWBC, contrastWBC)
 
-  nCol = dim(Xmat)[2]
-  nSubj = dim(Y)[2]
+  nCol = ncol(Xmat)
+  nSubj = ncol(Y)
 
   mixCoef = matrix(0, nSubj, nCol)
   rownames(mixCoef) = colnames(Y)
@@ -57,15 +57,15 @@ projectWBC <- function(Y, coefWBC, contrastWBC=NULL, nonnegative=TRUE, lessThanO
 
     for(i in 1:nSubj){
       obs = which(!is.na(Y[,i])) 
-      Dmat = t(Xmat[obs,])%*%Xmat[obs,]
-      mixCoef[i,] = quadprog::solve.QP(Dmat, t(Xmat[obs,])%*%Y[obs,i], Amat, b0vec)$sol
+      Dmat = crossprod(Xmat[obs,])
+      mixCoef[i,] = quadprog::solve.QP(Dmat, crossprod(Xmat[obs,], Y[obs,i]), Amat, b0vec)$sol
     }
   }
   else{
     for(i in 1:nSubj){
       obs = which(!is.na(Y[,i])) 
-      Dmat = t(Xmat[obs,])%*%Xmat[obs,]
-      mixCoef[i,] = solve(Dmat, t(Xmat[obs,]) %*% Y[obs,i])
+      Dmat = crossprod(Xmat[obs,])
+      mixCoef[i,] = solve(Dmat, crossprod(Xmat[obs,], Y[obs,i]))
     }
   }
 
@@ -76,12 +76,12 @@ projectWBC <- function(Y, coefWBC, contrastWBC=NULL, nonnegative=TRUE, lessThanO
 ############################################
 
 validationWBC <- function(Y, pheno, modelFix, modelBatch=NULL, L.forFstat = NULL){
-  N = dim(pheno)[1]
+  N = nrow(pheno)
   pheno$y = rep(0, N)
   xTest <- model.matrix(modelFix, pheno)
-  sizeModel = dim(xTest)[2]
+  sizeModel = ncol(xTest)
   
-  M = dim(Y)[1]
+  M = nrow(Y)
 
   if(is.null(L.forFstat)){
      L.forFstat = diag(sizeModel)[-1,]  #All non-intercept coefficients
@@ -92,7 +92,7 @@ validationWBC <- function(Y, pheno, modelFix, modelBatch=NULL, L.forFstat = NULL
   # Initialize various containers
   sigmaResid = sigmaIcept = nObserved = nClusters = Fstat = rep(NA, M)
   coefEsts = matrix(NA, M, sizeModel)
-  coefVcovs =list()
+  coefVcovs = list()
 
   for(j in 1:M){ # For each CpG
 

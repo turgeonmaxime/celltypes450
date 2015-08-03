@@ -70,7 +70,8 @@ penFit <- function(y, Zmat) {
   Z <- Zmat[is.obs,,drop=FALSE]
   y <- y[is.obs]
   id <- rep_len(1,length(y))
-  lmod <- try(nlme::lme(y~1, random=list(id=pdIdent(~Z-1))), silent=TRUE)
+  posdMat <- pdIdent(~Z-1)
+  lmod <- try(nlme::lme(y~1, random=list(id=posdMat)), silent=TRUE)
   
   if(inherits(lmod,"try-error")){
     mu <- mean(y, na.rm=TRUE)
@@ -154,7 +155,7 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
         nonnegative=TRUE,
         lessThanOne=FALSE)
 
-    omega.mix = (1 / apply(omega.mix, 1, sum)) * omega.mix
+    omega.mix = (1 / rowSums(omega.mix)) * omega.mix
     if(est.only){ return(omega.mix) }
 
     message("adjusting beta (this will take a while)...")
