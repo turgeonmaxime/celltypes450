@@ -97,13 +97,14 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
           cell.coefs = system.file("extdata", "houseman-dmrs-locs.txt", package="celltypes450")
         }
         warning("We suggest you use at least 2x10^5 probes")
-      }
+      } else {
         # rownames are cg id.
         if(length(grep("^cg", rownames(B), value=TRUE, perl=TRUE)) > 200000){
             cell.coefs = system.file("extdata", "houseman-dmrs.txt", package="celltypes450")
         } else { # row names are e.g. chr17:12345
             cell.coefs = system.file("extdata", "houseman-dmrs-locs.txt", package="celltypes450")
         }
+      }
     }
     # after adjusting, set values < 0 or > 1 to the smallest observed value
     epsilon.min = min(B, 1 - B)
