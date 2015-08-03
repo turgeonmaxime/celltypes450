@@ -135,8 +135,8 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
     
     dmr.coefs = read.delim(cell.coefs, row.names=1)
     # take shared probes. may be differences if beta is from 450k
-    dmr.coefs = dmr.coefs[rownames(dmr.coefs) %in% rownames(B),, drop=FALSE]
-    dmr.coefs = dmr.coefs[1:min(top_n, nrow(dmr.coefs)),, drop=FALSE]
+    dmr.coefs = dmr.coefs[rownames(dmr.coefs) %in% rownames(B),]
+    dmr.coefs = as.matrix(dmr.coefs[1:min(top_n, nrow(dmr.coefs)),])
     stopifnot(nrow(dmr.coefs) > 0)
 
     # reporter matrix
@@ -166,6 +166,7 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
       message(paste("total with error in model fit:", nbad))
       
       adjBeta <- vapply(tmpAdj, function(myList) myList$adjusted, rep(0, ncol(B)))
+      adjBeta <- t(adjBeta)
     } else {
       tmpList = lapply(1:mc.cores, function(i){ seq(from=i, to=nrow(B), by=mc.cores) })
       tmpAdj = parallel::mclapply(tmpList, function(ix){ penFitAll(B[ix,], omega.mix) }, mc.cores=mc.cores)

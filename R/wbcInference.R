@@ -45,8 +45,7 @@ projectWBC <- function(Y, coefWBC, contrastWBC=NULL, nonnegative=TRUE, lessThanO
   colnames(mixCoef) = colnames(Xmat)
 
   if(nonnegative){
-    library(quadprog)
-
+    
     if(lessThanOne){
       Amat = cbind(rep(-1,nCol), diag(nCol))
       b0vec = c(-1,rep(0,nCol))
@@ -59,7 +58,7 @@ projectWBC <- function(Y, coefWBC, contrastWBC=NULL, nonnegative=TRUE, lessThanO
     for(i in 1:nSubj){
       obs = which(!is.na(Y[,i])) 
       Dmat = t(Xmat[obs,])%*%Xmat[obs,]
-      mixCoef[i,] = solve.QP(Dmat, t(Xmat[obs,])%*%Y[obs,i], Amat, b0vec)$sol
+      mixCoef[i,] = quadprog::solve.QP(Dmat, t(Xmat[obs,])%*%Y[obs,i], Amat, b0vec)$sol
     }
   }
   else{
