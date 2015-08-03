@@ -162,7 +162,7 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
       tmpAdj <- parallel::mclapply(1:nrow(B), function(i){ 
         penFit(B[i,, drop=FALSE], omega.mix) 
         }, mc.cores=mc.cores)
-      nbad <- sum(vapply(tmpAdj, function(myList) myList$bad), logical(1))
+      nbad <- sum(vapply(tmpAdj, function(myList) myList$bad,logical(1)))
       message(paste("total with error in model fit:", nbad))
       
       adjBeta <- vapply(tmpAdj, function(myList) myList$adjusted, rep(0, ncol(B)))
