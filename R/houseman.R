@@ -158,7 +158,7 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
     if(est.only){ return(omega.mix) }
 
     message("adjusting beta (this will take a while)...")
-    if(version == "devel") {
+    if(!is.null(version) && version == "devel") {
       tmpAdj <- parallel::mclapply(1:nrow(B), function(i){ 
         penFit(B[i,, drop=FALSE], omega.mix) 
         }, mc.cores=mc.cores)
