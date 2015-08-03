@@ -64,6 +64,32 @@ penFitAll = function(Ymat, Zmat){
   list(mu=mu, beta=beta, tau=tau, sigma=sigma, adjusted=adjusted)
 }
 
+penFit <- function(y, Zmat) {
+  adj <- y
+  is.obs <- !is.na(y)
+  Z <- Zmat[is.obs,,drop=FALSE]
+  y <- y[is.obs]
+  id <- rep_len(1,length(y))
+  lmod <- try(nlme::lme(y~1, random=list(id=pdIdent(~Z-1))), silent=TRUE)
+  
+  if(inherits(lmod,"try-error")){
+    mu <- mean(y, na.rm=TRUE)
+    sigma <- var(y, na.rm=TRUE)
+    tau = 0
+    beta = 0
+  }
+  else{
+    mu <- lmod$coef$fixed[1]
+    sigma <- lmod$sigma^2
+    tau <- getVarCov(lmod)[1,1]
+    beta <- lmod$coef$random$id
+    adj[is.obs] <- resid(lmod) + mu
+  }
+
+  list(mu=mu, beta=beta, tau=tau, sigma=sigma, 
+       adjusted=adj, bad=inherits(lmod, "try-error"))
+}
+
 #' Adjust Beta for cell mixture. Returns beta of the average cell-type.
 #'
 #' Can also return the estimates of each cell when est.only=TRUE
@@ -82,7 +108,7 @@ penFitAll = function(Ymat, Zmat){
 #' @export
 adjust.beta = function(B, top_n=500, mc.cores=2, 
                        cell.coefs=NULL,
-                       est.only=FALSE){
+                       est.only=FALSE, version=NULL){
     stopifnot(all((B > 0) & (B < 1), na.rm=TRUE))
 
     if(is.null(cell.coefs)){
@@ -132,13 +158,24 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
     if(est.only){ return(omega.mix) }
 
     message("adjusting beta (this will take a while)...")
-    tmpList = lapply(1:mc.cores, function(i){ seq(from=i, to=nrow(B), by=mc.cores) })
-    tmpAdj = parallel::mclapply(tmpList, function(ix){ penFitAll(B[ix,], omega.mix) }, mc.cores=mc.cores)
-
-    adjBeta = matrix(NA, nrow(B), ncol(B))
-    for (i in 1:length(tmpList)){
+    if(version == "devel") {
+      tmpAdj <- parallel::mclapply(1:nrow(B), function(i){ 
+        penFit(B[i,, drop=FALSE], omega.mix) 
+        }, mc.cores=mc.cores)
+      nbad <- sum(vapply(tmpAdj, function(myList) myList$bad), logical(1))
+      message(paste("total with error in model fit:", nbad))
+      
+      adjBeta <- vapply(tmpAdj, function(myList) myList$adjusted, rep(0, ncol(B)))
+    } else {
+      tmpList = lapply(1:mc.cores, function(i){ seq(from=i, to=nrow(B), by=mc.cores) })
+      tmpAdj = parallel::mclapply(tmpList, function(ix){ penFitAll(B[ix,], omega.mix) }, mc.cores=mc.cores)
+      
+      adjBeta = matrix(NA, nrow(B), ncol(B))
+      for (i in 1:length(tmpList)){
         adjBeta[tmpList[[i]],] = tmpAdj[[i]]$adjusted
+      }
     }
+    
     nCpGs = nrow(B) * ncol(B)
     message(paste("% values <= 0:", sum(adjBeta <= 0, na.rm=TRUE) / nCpGs * 100))
     message(paste("% values >= 1:", sum(adjBeta >= 1, na.rm=TRUE) / nCpGs * 100))
