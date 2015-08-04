@@ -219,7 +219,7 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
       adjBeta <- vapply(tmpAdj, function(myList) myList$adjusted, rep(0, ncol(B)))
       adjBeta <- t(adjBeta)
     } else {
-      if(!is.null(version) && version = "devel2"){
+      if(!is.null(version) && version == "devel2"){
         tmpList = lapply(1:mc.cores, function(i){ seq(from=i, to=nrow(B), by=mc.cores) })
         tmpAdj = parallel::mclapply(tmpList, function(ix){ penFitAll2(B[ix,], omega.mix) }, mc.cores=mc.cores)
         
