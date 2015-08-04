@@ -26,7 +26,7 @@ penFitOne = function(y, Zmat){
   Z = Zmat[is.obs,,drop=FALSE]
   y = y[is.obs]
   id = rep(1,length(y))
-  lmod = try(nlme::lme(y~1, random=list(id=pdIdent(~Z-1))), silent=TRUE)
+  lmod = try(nlme::lme(y~1, random=list(id=nlme::pdIdent(~Z-1))), silent=TRUE)
   if(!inherits(lmod,"try-error")){
     adj[is.obs] = resid(lmod) + lmod$coef$fixed[1]
   }# else {
@@ -70,7 +70,7 @@ penFit <- function(y, Zmat) {
   Z <- Zmat[is.obs,,drop=FALSE]
   y <- y[is.obs]
   id <- rep_len(1,length(y))
-  posdMat <- pdIdent(~Z-1)
+  posdMat <- nlme::pdIdent(~Z-1)
   lmod <- try(nlme::lme(y~1, random=list(id=posdMat)), silent=TRUE)
   
   if(inherits(lmod,"try-error")){
@@ -90,6 +90,56 @@ penFit <- function(y, Zmat) {
   list(mu=mu, beta=beta, tau=tau, sigma=sigma, 
        adjusted=adj, bad=inherits(lmod, "try-error"))
 }
+
+penFitOne2 = function(y, Zmat, fit){
+  adj = y
+  lmod = try(nlme::update.lme(fit, y~1), silent=TRUE)
+  if(!inherits(lmod,"try-error")){
+    adj = resid(lmod) + lmod$coef$fixed[1]
+  }# else {
+  #    message(lmod)
+  #}
+  list(modelFit=lmod, adjusted=adj)
+}
+
+penFitAll2 = function(Ymat, Zmat){
+  nFeature = dim(Ymat)[1]
+  
+  mu = sigma = tau = rep(NA, nFeature)
+  beta = matrix(NA, nFeature, dim(Zmat)[2])
+  adjusted = matrix(NA, nFeature, dim(Ymat)[2])
+  nbad = 0
+  
+  pf = penFitOne(Ymat[1,], Zmat)
+  fit = pf$modelFit
+  
+  mu[1] = fit$coef$fixed[1]
+  sigma[1] = fit$sigma^2
+  tau[1] = getVarCov(fit)[1,1]
+  beta[1,] = fit$coef$random$id
+  
+  for(i in 2:nFeature){
+    pf = penFitOne2(Ymat[i,], Zmat, fit)
+    
+    if(inherits(pf$modelFit,"try-error")){
+      nbad = nbad + 1
+      mu[i] = mean(Ymat[i,],na.rm=TRUE)
+      sigma[i] = var(Ymat[i,],na.rm=TRUE)
+      tau[i] = 0
+      beta[i,] = 0
+    }
+    else{
+      mu[i] = pf$modelFit$coef$fixed[1]
+      sigma[i] = pf$modelFit$sigma^2
+      tau[i] = getVarCov(pf$modelFit)[1,1]
+      beta[i,] = pf$modelFit$coef$random$id
+    }
+    adjusted[i,] = pf$adjusted
+  }
+  message(paste("total with error in model fit:", nbad))
+  list(mu=mu, beta=beta, tau=tau, sigma=sigma, adjusted=adjusted)
+}
+
 
 #' Adjust Beta for cell mixture. Returns beta of the average cell-type.
 #'
@@ -163,18 +213,28 @@ adjust.beta = function(B, top_n=500, mc.cores=2,
       tmpAdj <- parallel::mclapply(1:nrow(B), function(i){ 
         penFit(B[i,, drop=FALSE], omega.mix) 
         }, mc.cores=mc.cores)
-      nbad <- sum(vapply(tmpAdj, function(myList) myList$bad,logical(1)))
+      nbad <- sum(vapply(tmpAdj, function(myList) myList$bad, logical(1)))
       message(paste("total with error in model fit:", nbad))
       
       adjBeta <- vapply(tmpAdj, function(myList) myList$adjusted, rep(0, ncol(B)))
       adjBeta <- t(adjBeta)
     } else {
-      tmpList = lapply(1:mc.cores, function(i){ seq(from=i, to=nrow(B), by=mc.cores) })
-      tmpAdj = parallel::mclapply(tmpList, function(ix){ penFitAll(B[ix,], omega.mix) }, mc.cores=mc.cores)
-      
-      adjBeta = matrix(NA, nrow(B), ncol(B))
-      for (i in 1:length(tmpList)){
-        adjBeta[tmpList[[i]],] = tmpAdj[[i]]$adjusted
+      if(!is.null(version) && version = "devel2"){
+        tmpList = lapply(1:mc.cores, function(i){ seq(from=i, to=nrow(B), by=mc.cores) })
+        tmpAdj = parallel::mclapply(tmpList, function(ix){ penFitAll2(B[ix,], omega.mix) }, mc.cores=mc.cores)
+        
+        adjBeta = matrix(NA, nrow(B), ncol(B))
+        for (i in 1:length(tmpList)){
+          adjBeta[tmpList[[i]],] = tmpAdj[[i]]$adjusted
+        }
+      } else {
+        tmpList = lapply(1:mc.cores, function(i){ seq(from=i, to=nrow(B), by=mc.cores) })
+        tmpAdj = parallel::mclapply(tmpList, function(ix){ penFitAll(B[ix,], omega.mix) }, mc.cores=mc.cores)
+        
+        adjBeta = matrix(NA, nrow(B), ncol(B))
+        for (i in 1:length(tmpList)){
+          adjBeta[tmpList[[i]],] = tmpAdj[[i]]$adjusted
+        }
       }
     }
     
