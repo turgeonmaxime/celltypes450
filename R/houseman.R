@@ -95,7 +95,9 @@ penFit <- function(y, Zmat) {
 
 penFitOne2 = function(y, Zmat, fit){
   adj = y
-  lmod = try(update.lme(fit, y~1), silent=TRUE)
+  Z = Zmat
+  id = rep_len(1, length(adj))
+  lmod = try(update(fit, adj~1), silent=TRUE)
   if(!inherits(lmod,"try-error")){
     adj = resid(lmod) + lmod$coef$fixed[1]
   }# else {
