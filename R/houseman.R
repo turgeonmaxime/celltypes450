@@ -1,3 +1,5 @@
+library(nlme) # change the package so that it requires nlme
+
 #' Perform the anti-logit
 #' @param M matrix of M values on which to apply anti-logit.
 #' @return beta matrix
@@ -26,7 +28,7 @@ penFitOne = function(y, Zmat){
   Z = Zmat[is.obs,,drop=FALSE]
   y = y[is.obs]
   id = rep(1,length(y))
-  lmod = try(nlme::lme(y~1, random=list(id=nlme::pdIdent(~Z-1))), silent=TRUE)
+  lmod = try(lme(y~1, random=list(id=pdIdent(~Z-1))), silent=TRUE)
   if(!inherits(lmod,"try-error")){
     adj[is.obs] = resid(lmod) + lmod$coef$fixed[1]
   }# else {
@@ -70,8 +72,8 @@ penFit <- function(y, Zmat) {
   Z <- Zmat[is.obs,,drop=FALSE]
   y <- y[is.obs]
   id <- rep_len(1,length(y))
-  posdMat <- nlme::pdIdent(~Z-1)
-  lmod <- try(nlme::lme(y~1, random=list(id=posdMat)), silent=TRUE)
+  posdMat <- pdIdent(~Z-1)
+  lmod <- try(lme(y~1, random=list(id=posdMat)), silent=TRUE)
   
   if(inherits(lmod,"try-error")){
     mu <- mean(y, na.rm=TRUE)
@@ -93,7 +95,7 @@ penFit <- function(y, Zmat) {
 
 penFitOne2 = function(y, Zmat, fit){
   adj = y
-  lmod = try(nlme::update.lme(fit, y~1), silent=TRUE)
+  lmod = try(update.lme(fit, y~1), silent=TRUE)
   if(!inherits(lmod,"try-error")){
     adj = resid(lmod) + lmod$coef$fixed[1]
   }# else {
@@ -117,6 +119,7 @@ penFitAll2 = function(Ymat, Zmat){
   sigma[1] = fit$sigma^2
   tau[1] = getVarCov(fit)[1,1]
   beta[1,] = fit$coef$random$id
+  adjusted[1,] <- pf$adjusted
   
   for(i in 2:nFeature){
     pf = penFitOne2(Ymat[i,], Zmat, fit)
